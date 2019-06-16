@@ -1,0 +1,310 @@
+---
+title: "GIS with R: tutorial with focus on Slovakia"
+output: html_document
+---
+
+# Useful resources
+
+1. Geocomputation with R: a comprehensive, but very practical book on GIS with
+   R. It is freely available online at [this
+   link](https://geocompr.robinlovelace.net/).
+2. [r-spatial.org](r-spatial.org)
+
+
+# Installing `sf` package
+Install the package using:
+```{r, echo=TRUE, eval=FALSE}
+install.packages(sf)
+```
+
+The installation should work out of the box, but one might get compatibility
+issues with the `gdal` library. Depending on the error, googling it should do
+the job.
+
+After the installation, we simply load the package, and also set the R working
+directory appropriately.
+
+```{r, echo=T, results='hide', cache=TRUE}
+library(sf)
+
+setwd(file.path(path.expand('~'), 'workplace', 'gis-slovakia'))
+```
+
+# Maps
+
+In order to be able to work with maps, we need obtain the files that have the
+geometrical representation of the maps, with the corresponding coordinate
+system. When working with global data, it is useful to use a coordinate system
+which takes into account the curvature of the Earth, but for analysis that
+involves small area (like Slovakia), it is practical to worth with planar
+coordinates where we can use Euclidean geometry that we are familiar with. In
+our analysis we will use the **krovak** coordinate system which covers Czechia
+and Slovak Republic. The legally-binding system that the cadastre uses is coded
+as `EPSG:5513`.
+
+This [website](https://epsg.io/5513) is useful for navigating the map and
+reading off the coordinates for a particular point. To change the coordinate
+system, change the coordinates system code. 
+
+## File formats
+The map files come in different formats. One of the most common ones are
+shapefiles (`.shp`), geodatabase (`.gdb`), geopackage (`.gpk`),
+geoJSON (`.geojson`). 
+
+## Obtaining Slovakia maps
+
+This [page](https://www.geoportal.sk/sk/zbgis_smd/na-stiahnutie/) in the
+[geoportal.sk](geoportal.sk) has the necessary files in different formats. We
+stick to the shapefiles (`.shp`). The portal allows downloading the maps at
+different resolutions. In this guide, we will be working with the most precise
+one, which is referred to as 'Základná úroveň/ ZBGIS - Administratívne
+hranice'.
+
+
+# Loading the maps
+
+`sf` package provides `st_read()` function with two parameters:
+1. `dsn`: this stands for data source name, but it is effectively a file name.
+2. `layer `: certain file formats allow saving multiple layers, we will work
+   with single layer files (it does not mean we can't have multiple
+   indicators/statistic for each location).
+
+We start off with the maps at the municipality level. We simply run:
+
+```{r, echo=T}
+mapa.obec.sf <- st_read(dsn = file.path(getwd(), 'maps', 'ah_shp_0', 'obec_0.shp'))
+```
+
+Now that, we loaded the object, we familiarise ourselves with it.
+
+
+## Coordinates system
+To see what coordinate system it uses, we run:
+
+```{r, echo=T}
+st_crs(mapa.obec.sf)
+```
+
+We see that the CRS used is `krovak`, but we do not get the code, e.g. 5513.
+Since, the krovak CRS comes in different flavours, we do a transformation to
+the one that the cadastre office in Slovakia uses by using `st_transform()`
+function.  We also save that code into a constant for future use.
+
+```{r, echo=T}
+CRS.CODE.KU.SK <- 5513    # save the cadastre CRS to a constant
+mapa.obec.sf <- st_transform(x = mapa.obec.sf, crs = CRS.CODE.KU.SK)
+st_crs(mapa.obec.sf)                   # 
+```
+
+Now, we see that the EPSG code for our coordinates system is set correctly.
+
+
+## Data associated with the maps
+
+Now, we explore the data that the maps comes with. First we check the column
+names:
+
+```{r}
+names(mapa.obec.sf)
+```
+
+Some of these names are intuitive, but have a one more peek at the data to
+understand more. R's built-in command `summary()` is a useful start.
+
+```{r}
+summary(mapa.obec.sf)
+```
+
+From this, it is obvious that:
+1. `IDN4` is a unique identifier for each municipality.
+2. `NM4` is the name of the municipality.
+3. `IDN3` is the identifier for okres.
+4. `NM3` is the name for okres.
+5. `IDN2` is the identifier for kraj.
+5. `NM2` is the name for kraj.
+7. `Shape_Leng` and `Shape_Area` are the perimeter and the area of the
+   municipality.
+8. It's not clear to me what `VYMERA` is given that the values slightly deviate
+   from the `Shape_Area`.
+
+The other columns are not relevant for this tutorial.
+
+In the visualisation section, we will stick to these values even though they
+are not particularly interesting. In later sections we will add more
+interesting data.
+
+Before, we proceed, we rename them to more meaningful names:
+
+```{r, cache=TRUE}
+library(dplyr)
+mapa.obec.sf <- mapa.obec.sf %>%
+  rename(obec = NM4) %>%
+  rename(obec_id = IDN4) %>%
+  rename(okres = NM3) %>%
+  rename(okres_id = IDN3) %>%
+  rename(kraj = NM2) %>%
+  rename(kraj_id = IDN2) %>%
+  rename(obvod_uzemia = Shape_Leng) %>%
+  rename(plocha_uzemia = Shape_Area)
+```
+
+
+
+## Maps for other geometries
+
+For convenience, we also load other geometries: okres, kraj. We also transform
+them into the correct CRS.
+
+```{r, cache=TRUE, results='hide', echo=TRUE}
+mapa.okres.sf <- st_read(dsn = file.path(getwd(), 'maps', 'ah_shp_0', 'okres_0.shp'))
+mapa.okres.sf <- st_transform(x = mapa.okres.sf, crs = CRS.CODE.KU.SK)
+
+mapa.kraj.sf <- st_read(dsn = file.path(getwd(), 'maps', 'ah_shp_0', 'kraj_0.shp'))
+mapa.kraj.sf <- st_transform(x = mapa.kraj.sf, crs = CRS.CODE.KU.SK)
+```
+
+And we do the renaming as before (not shown here).
+
+```{r, echo=FALSE, cache=TRUE, results='hide'}
+mapa.kraj.sf <- mapa.kraj.sf %>%
+  rename(kraj = NM2) %>%
+  rename(kraj_id = IDN2) %>%
+  rename(obvod_uzemia = Shape_Leng) %>%
+  rename(plocha_uzemia = Shape_Area)
+mapa.okres.sf <- mapa.okres.sf %>%
+  rename(okres = NM3) %>%
+  rename(okres_id = IDN3) %>%
+  rename(kraj = NM2) %>%
+  rename(kraj_id = IDN2) %>%
+  rename(obvod_uzemia = Shape_Leng) %>%
+  rename(plocha_uzemia = Shape_Area)
+```
+
+
+# Visualisations
+
+One of the mosti important aspects of GIS is data visualisation. There  are
+different way of going about it, here is a selection of what I've used
+personally.
+
+## Default method
+
+Instinctively, the first thing one does when exploring an unknown object in R
+is call the `plot()` method. Indeed, there is a default method that does
+surprisingly good job with little effort.
+
+```{r, cache=TRUE, echo=TRUE}
+plot(mapa.okres.sf)
+```
+
+The command tried to plot all the columns, but by default it takes the first 9. 
+Usually, we want to have more control over what we plot, so we choose what we
+are interested in. In this case, we plot the area and the perimeter.
+```{r, cache=TRUE, echo=TRUE}
+plot(x = mapa.okres.sf[c('obvod_uzemia', 'plocha_uzemia')],
+     key.pos = 1) # this add the legend to the bottom (1)
+```
+
+This is a good place to start when doing exploratory analysis, but it's better
+to use more sophisticated functions to produce better-looking plots.
+
+
+## ggplot
+ggplot is the tool of choice for general X-Y plots. It is possible to 
+```{r, cache=TRUE}
+library(ggplot2)  # Load the ggplot library
+library(viridis)  # Load the library for a nice colour palette
+ggplot(mapa.okres.sf) +
+  geom_sf(aes(fill = plocha_uzemia)) +
+  scale_fill_viridis("Plocha m\u00B2") +
+  ggtitle("Plocha okresov") +
+  theme_bw()
+```
+
+Whatever applied to ggplot craft, applies here as well.
+
+
+## tmap
+
+This is a very versatile library that allows integration with Open Street Map
+data and interactive maps on top of regular plotting. 
+
+Before we proceed, we install the libraries and load them.
+
+```{r, eval=FALSE, echo=TRUE}
+install.packages('tmap')
+```
+
+```{r, echo=TRUE, cache=TRUE, results='hide'}
+library(tmap)
+```
+
+```{r, cache=TRUE, echo=TRUE}
+tmap_mode("plot")
+tm_shape(mapa.okres.sf) +
+  tm_fill(col = "plocha_uzemia", style = "cont", fill.title="Plocha m2", scale = 0.8, alpha = 0.7) + 
+  tm_style('gray', title = 'Plocha okresov m\u00B2')
+```
+
+For example, we can do a breakdown by kraj.
+
+```{r, cache=TRUE, echo=TRUE}
+tmap_mode("plot")
+tm_shape(mapa.okres.sf) +
+  tm_fill(col = "plocha_uzemia", style = "cont", fill.title="Plocha m2", scale = 0.8, alpha = 0.7) + 
+  tm_style('gray', title = 'Plocha okresov m\u00B2') + 
+  tm_facets('kraj')
+```
+
+
+For plots with fewer components (e.g. kraj), we might want to add labels, for
+example:
+
+```{r, cache=TRUE, echo=TRUE}
+tmap_mode("plot")
+tm_shape(mapa.kraj.sf) +
+  tm_fill(col = "plocha_uzemia", style = "cont", fill.title="Plocha m2", scale = 0.8, alpha = 0.7) + 
+  tm_style('gray', title = 'Plocha krajov m\u00B2') + 
+  tm_text('kraj')
+```
+
+To save the map, use `tmap_save()` function.
+
+```{r, eval=F}
+mapa.okres.sf.gps <- st_transform(x = mapa.okres.sf, crs=4326)
+osm_tiles = tmaptools::read_osm(st_bbox(mapa.okres.sf.gps), type = "osm")
+tmap.object <- qtm(osm_tiles, raster.alpha = 0.6) + 
+  tm_shape(mapa.okres.sf.gps) +
+  tm_fill(col = "Shape_Area", style = "cont", fill.title="Plocha m2", scale = 0.8, alpha = 0.7) + 
+  tm_style('gray', title = 'Plocha okresov')
+```
+
+
+## Interactive maps
+
+```{r interactive_map, cache=TRUE, echo=TRUE}
+tmap_mode("view")
+tm_shape(mapa.okres.sf) +
+  tm_fill(col = "plocha_uzemia", style = "cont", fill.title="Plocha m2", scale = 0.8, alpha = 0.7) + 
+  tm_style('gray', title = 'Plocha okresov m\u00B2')
+```
+
+The interactive maps can be saved in the `html` format and can be easily
+shared. The background maps are loaded dynamically from the internet.
+
+
+# Operations
+
+
+
+
+# Case study 1: Prezidentske volby, prve kolo.
+
+1. Download the raw dataset of the results from [here](http://volby.statistics.sk/prez/prez2019/sk/download.html).
+2. Load the results, merge it with the geography you are interested in (obec,
+   kraj)
+3. Plot the results.
+
+
+# Case study 2: Unemployment rate.
+
