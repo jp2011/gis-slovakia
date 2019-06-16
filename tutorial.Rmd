@@ -298,6 +298,13 @@ shared. The background maps are loaded dynamically from the internet.
 # Operations
 
 
+## Subsetting
+
+
+## Distance metrics
+
+## Working with different geometries
+Working with grids and the administrative districts.
 
 
 # Case study 1: Prezidentske volby, prve kolo.
@@ -309,4 +316,7 @@ shared. The background maps are loaded dynamically from the internet.
 
 
 # Case study 2: Unemployment rate.
+
+
+
 
