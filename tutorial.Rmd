@@ -1,6 +1,8 @@
 ---
 title: "GIS with R: tutorial with focus on Slovakia"
-output: html_document
+output:
+    html_document:
+        keep_md: true
 ---
 
 # Useful resources
