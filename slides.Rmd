@@ -1,9 +1,15 @@
 ---
-title: "GIS with R: tutorial with focus on Slovakia"
+title: "GIS with R: examples from Slovakia"
+author: Jan Povala 
+date: March 22, 2005
 output:
-    html_document:
-        keep_md: true
+#  beamer_presentation:
+#    toc: true
+  revealjs::revealjs_presentation:
+    highlight: pygments
+    transition: fade
 ---
+
 
 # Useful resources
 
@@ -16,7 +22,7 @@ output:
 # Installing `sf` package
 Install the package using:
 ```{r, echo=TRUE, eval=FALSE} )
-install.packages(sf)
+install.packages('sf')
 ```
 
 The installation should work out of the box, but one might get compatibility
@@ -99,7 +105,6 @@ st_crs(mapa.obec.sf)                   #
 ```
 
 Now, we see that the EPSG code for our coordinates system is set correctly.
-
 
 ## Data associated with the maps
 
@@ -284,113 +289,4 @@ tmap.object <- qtm(osm_tiles, raster.alpha = 0.6) +
   tm_style('gray', title = 'Okresy SR')
 ```
 
-
-## Interactive maps
-
-```{r interactive_map, cache=TRUE, echo=TRUE}
-tmap_mode("view")
-tm_shape(mapa.okres.sf) +
-  tm_fill(col = "plocha_uzemia", style = "cont", title="Plocha m\u00B2", scale = 0.8, alpha = 0.7) + 
-  tm_style('gray', title = 'Okresy SR')
-```
-
-The interactive maps can be saved in the `html` format and can be easily
-shared. The background maps are loaded dynamically from the internet.
-
-
-# Operations
-TODO
-
-
-## Subsetting
-TODO
-
-
-## Distance metrics
-
-## Working with different geometries
-Working with grids and the administrative districts.
-
-
-# Case study: prezidentske volby, prve kolo.
-
-1. Download the raw dataset of the results from [here](http://volby.statistics.sk/prez/prez2019/sk/download.html).
-2. Load the results, merge it with the geography you are interested in (obec,
-   kraj)
-3. Plot the results.
-
-
-```{r install_readxl, eval=F, echo=FALSE}
-install.packages("readxl")
-```
-
-First, load up the data from an Excel sheet. We check manually that first 4
-rows are
-```{r load_xlsx_prezidentske, results='hide', echo=TRUE, cache=TRUE}
-library(readxl)
-results.obec.file.path <- file.path(getwd(), 'data', "raw", 
-                                    "PRE_2019_KOLO1_xlsx",
-                                    "PRE_2019_KOLO1_tab03e.xlsx")
-results.obec <- read_excel(results.obec.file.path)
-results.obec <- results.obec[-(1:4), ]
-names(results.obec) <- c('kraj_id', 'kraj', 'uzemny_obvod_id', 'uzemny_obvod',
-                         'okres_id', 'okres', 'obec_id', 'obec',
-                         'candidate_id', 'candidate_fname', 'candidate_sname',
-                         'platne_hlasy_count', 'platne_hlasy_percent',
-                         'pullouts')
-results.obec <- results.obec %>%
-  dplyr::mutate_at(c("platne_hlasy_count", "platne_hlasy_percent"), as.numeric)
-```
-
-Now, we join the data with the map.
-
-```{r prezidentke_map_join, echo=TRUE, cache=TRUE}
-results.obec.sf <- mapa.obec.sf %>%
-  dplyr::select(obec_id) %>%
-  dplyr::mutate(obec_id = as.character(obec_id)) %>%
-  dplyr::full_join(results.obec, by = c("obec_id" = "obec_id")) %>%
-  dplyr::mutate(name = paste(candidate_fname, candidate_sname, sep = " "))
-```
-
-Since we are working with 'obec' level, we focus only on one 'kraj' region and
-we only compare top 4 candidates in that region.
-
-```{r prezidentske_plot, echo=TRUE, cache=TRUE}
-zilinsky.kraj.results.sf <- results.obec.sf %>%
-  dplyr::filter(kraj_id == 5)  # zilinsky kraj
-
-# select top 4 candidates in Zilinsky kraj
-zilinsky.kraj.top.candidates  <- zilinsky.kraj.results.sf %>%
-  dplyr::group_by(name) %>%
-  dplyr::summarise(vote_total = sum(platne_hlasy_count)) %>%
-  dplyr::arrange(vote_total) %>%
-  dplyr::top_n(4) %>%
-  dplyr::pull(name)
-
-# filter out only the 4 candidates
-zilinsky.kraj.results.top.candidates.sf <- zilinsky.kraj.results.sf %>%
-  dplyr::filter(name %in% zilinsky.kraj.top.candidates)
-
-tmap_mode("plot")
-tm_shape(zilinsky.kraj.results.top.candidates.sf) +
-  tm_fill(col = "platne_hlasy_percent", style = "cont", title="Podiel hlasov %") + 
-  tm_style('gray', title = 'Žilinsky kraj') + 
-  tm_facets('name')
-```
-
-As we can see this visualisation is not ideal, so we go for the interactive
-map where we can zoom in/out as we please.
-
-```{r prezidentske_interactive, cache=TRUE, echo=TRUE}
-library(tidyr)
-zilinsky.results.wide.sf <- zilinsky.kraj.results.top.candidates.sf %>%
-  dplyr::select(name, platne_hlasy_percent, obec) %>%
-  tidyr::spread(name, platne_hlasy_percent)
-
-tmap_mode("view")
-tm <- tm_shape(zilinsky.results.wide.sf) + 
-  tm_polygons(zilinsky.kraj.top.candidates) + 
-  tm_facets(sync = TRUE, ncol = 2)
-tm
-```
 
