@@ -15,8 +15,8 @@ output:
 
 # Installing `sf` package
 Install the package using:
-```{r, echo=TRUE, eval=FALSE} )
-install.packages(sf)
+```{r, echo=TRUE, eval=FALSE} 
+install.packages('sf')
 ```
 
 The installation should work out of the box, but one might get compatibility
