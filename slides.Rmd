@@ -128,7 +128,7 @@ mapa.obec.sf <- st_read(dsn = file.path(getwd(),
 
 ## Inspecting the map object - coordinates
 
-To see what coordinate system it use `st_crs()` function:
+To see what coordinate system it uses `st_crs()` function:
 ```{r, echo=T, cache=T}
 st_crs(mapa.obec.sf)
 ```
@@ -152,7 +152,7 @@ summary(mapa.obec.sf)
 
 ## Inspecting the map object - data
 
-From this, it is obvious that:
+From the columns included in the shapefiles, we see that:
 
 1. `IDN4` is a unique identifier for each municipality.
 2. `NM4` is the name of the municipality.
@@ -166,10 +166,6 @@ From this, it is obvious that:
    from the `Shape_Area`.
 
 The other columns are not relevant for this tutorial.
-
-In the visualisation section, we will stick to these values even though they
-are not particularly interesting. In later sections we will add more
-interesting data.
 
 
 ## Data preparation
@@ -225,9 +221,7 @@ We will give examples of all throughout the rest of this tutorial.
 
 1. Load the migration and population data.
 2. Merge the data with the map files.
-3. Visualise with migration type breakdown:
-    - within-country migration
-    - between-countries migration
+3. Visualise the data: inflow / outflow. 
 
 
 ## Example: migration in Slovakia II
@@ -296,7 +290,7 @@ limitations such as not supporting legends. `tmap` package can handle those
 very well.
 
 
-This library allows integration with Open Street Map
+`tmap` allows integration with Open Street Map
 data and interactive maps on top of regular plotting. What we show here is only
 scratching the surface, for more examples, please visit the [tmap's github
 page](https://github.com/mtennekes/tmap).
@@ -348,187 +342,78 @@ tm_shape(sk.migration) +
 ```
 
 
-## Example: deaths in Slovakia
-here show ggplot
-
-* Download the dataset from the [official statistics portal](http://datacube.statistics.sk/#!/view/sk/VBD_DEM/om7038rr/Priemern%C3%BD%20vek%20osoby%20pri%20%C3%BAmrt%C3%AD%20pod%C4%BEa%20pohlavia%20-%20SR-oblas%C5%A5-kraj-okres,%20m-v%20%5Bom7038rr%5D)
-* Do some plots, by sex...
-
-
-## Example: death causes in Slovakia
-
-* Download the dataset from the [official statistics portal](http://datacube.statistics.sk/#!/view/sk/VBD_DEM/om7035rr/Zomrel%C3%AD%20pod%C4%BEa%20pr%C3%AD%C4%8Diny%20smrti,%20pohlavia%20a%20trval%C3%A9ho%20pobytu%20-%20SR-oblas%C5%A5-kraj-okres,%20m-v%20%5Bom7035rr%5D)
-* Break down by disease categories
+## Case study: respiratory diseases I
+1. Download the dataset from the [official statistics portal](http://datacube.statistics.sk/#!/view/sk/VBD_DEM/om7035rr/Zomrel%C3%AD%20pod%C4%BEa%20pr%C3%AD%C4%8Diny%20smrti,%20pohlavia%20a%20trval%C3%A9ho%20pobytu%20-%20SR-oblas%C5%A5-kraj-okres,%20m-v%20%5Bom7035rr%5D)
+2. Plot the rate of deaths due to respiratory diseases.
+3. Is there spatial correlation?
 
 
+## Case study: respiratory diseases II 
 
-## Using spatial analysis in regression models
+```{r, cache=T, warning=F, message=F, results='hide'}
 
-The example we give is very crude, but we just want to illustrate the point.
+death.causes.df <- read_excel(file.path(getwd(), 'data', "raw", "deaths_causes.xlsx"),
+                                    skip=7, col_names=FALSE)
+colnames(death.causes.df) <- c('district', 'group', 'type', 'y2014', 'y2015',
+                               'y2016', 'y2017', 'y2018')
 
+# sum over the years, merge with population counts and group by disease group
+respiratory.causes.df <- death.causes.df %>%
+  dplyr::mutate(district = gsub("^District of (.+)$", "\\1", district)) %>%
+  dplyr::mutate(counts_5year = y2014 + y2015 + y2016 + y2017 + y2018) %>%
+  dplyr::group_by(district, group) %>%
+  dplyr::summarise(death_count = sum(counts_5year)) %>%
+  dplyr::filter(group == 'X Diseases of the respiratory system') %>%
+  dplyr::full_join(population.district.df, by = 'district') %>%
+  dplyr::mutate(death_rate = 100 * (death_count / population)) %>%
+  dplyr::mutate(district_ascii = stri_trans_general(str = district, id = "Latin-ASCII"))
 
-- check if there is a spatial correlation for the rates of deaths / age at
-  which people die
-- fit some glm model and see if the residuals are correlated...
-
-
-here show tmap methods
-
-1. Check spatial correlation for death rate for plucne choroby
-2. Try to fit the thing about altitude stuff....
-1. Fit number of breathing deaths a function of altitude
-2. check residuals...
-
-
-
-## Visualisation - default `plot()` method
-
-```{r, eval=FALSE}
-plot(x = mapa.okres.sf[c('plocha_uzemia')],
-     key.pos = 1) # this adds the legend to the bottom (1)
+# merge with the map
+respiratory.causes.sf <- mapa.okres.sf %>%
+  dplyr::mutate(district_ascii = stri_trans_general(str = okres, id = "Latin-ASCII")) %>%
+  dplyr::left_join(respiratory.causes.df, by = "district_ascii")
 ```
 
 
-## Visualisation - default `plot()` method
+## Case study: respiratory diseases III
 
-```{r, cache=TRUE, echo=FALSE}
-plot(x = mapa.okres.sf[c('plocha_uzemia')],
-     key.pos = 1) # this adds the legend to the bottom (1)
-```
-
-This is a good place to start when doing exploratory analysis, but it's better
-to use more sophisticated functions to produce better-looking plots.
-
-
-## Visualisation - `ggplot`
-
-`ggplot` can also be used in conjunction with spatial objects.
-
-```{r, eval=FALSE}
-library(ggplot2)  # Load the ggplot library
-library(viridis)  # Load the library for a nice colour palette
-ggplot(mapa.okres.sf) +
-  geom_sf(aes(fill = plocha_uzemia)) +
-  scale_fill_viridis("Plocha m\u00B2") +
-  ggtitle("Plocha okresov") +
-  theme_bw()
-```
-
-
-## Visualisation - `ggplot`
-
-
-```{r ggplot, cache=TRUE, echo=FALSE}
-library(ggplot2)  # Load the ggplot library
-library(viridis)  # Load the library for a nice colour palette
-ggplot(mapa.okres.sf) +
-  geom_sf(aes(fill = plocha_uzemia)) +
-  scale_fill_viridis("Plocha m\u00B2") +
-  ggtitle("Plocha okresov") +
-  theme_bw()
-```
-
-
-## Visualisation - `tmap`
-
-This is a very versatile library that allows integration with Open Street Map
-data and interactive maps on top of regular plotting. What we show here is only
-scratching the surface, for more examples, please visit the [tmap's github
-page](https://github.com/mtennekes/tmap).
-
-Before we proceed, we install the libraries and load them.
-
-```{r, eval=FALSE, echo=TRUE, results='hide', message=F, warning=F}
-install.packages('tmap')
-```
-
-```{r, echo=TRUE, cache=TRUE, results='hide'}
-library(tmap)
-```
-
-
-## Visualisation - `tmap`
-
-```{r, eval=TRUE, CACHE=FALSE, results='hide', echo=FALSE} 
-tmap_mode("plot")
-```
-
-```{r, eval=FALSE}
-tmap_mode("plot")
-tm_shape(mapa.okres.sf) +
-  tm_fill(col = "plocha_uzemia", style = "cont", title="Plocha m\u00B2") + 
-  tm_style('gray', title = 'Plocha okresov m\u00B2')
-```
-
-
-## Visualisation - `tmap`
-
-```{r, cache=TRUE, echo=FALSE}
-tm_shape(mapa.okres.sf) +
-  tm_fill(col = "plocha_uzemia", style = "cont", title="Plocha m\u00B2") + 
-  tm_style('gray', title = 'Plocha okresov m\u00B2')
-```
-
-
-## Visualisation - `tmap`
-
-For example, we can do a breakdown by kraj.
-
-```{r, eval=FALSE}
-tm_shape(mapa.okres.sf) +
-  tm_fill(col = "plocha_uzemia", style = "cont", title="Plocha m\u00B2") + 
-  tm_style('gray', title = 'Okresy SR') + 
-  tm_facets('kraj')
-```
-
-
-## Visualisation - `tmap`
-
-```{r, cache=TRUE, echo=FALSE}
-tm_shape(mapa.okres.sf) +
-  tm_fill(col = "plocha_uzemia", style = "cont", title="Plocha m\u00B2") + 
-  tm_style('gray', title = 'Okresy SR') + 
-  tm_facets('kraj')
-```
-
-
-## Visualisation - `tmap`
-
-For plots with fewer components (e.g. kraj), we might want to add labels. Be
-careful with the overlaps of the labels and overflows outside the frame. [This
-post](https://www.jla-data.net/eng/adjusting-bounding-box-of-a-tmap-map/) gives
-a good solution for the latter.
-
-```{r, eval=FALSE}
-tm_shape(mapa.kraj.sf) +
-  tm_fill(col = "plocha_uzemia", style = "cont", title="Plocha m\u00B2") + 
-  tm_style('gray', title = 'Okresy SR') + 
-  tm_text('kraj', auto.placement = TRUE)
-```
-
-To save the map, use `tmap_save()` function.
-
-
-## Visualisation - `tmap`
-
-```{r, cache=TRUE, echo=FALSE}
-tm_shape(mapa.kraj.sf) +
-  tm_fill(col = "plocha_uzemia", style = "cont", title="Plocha m\u00B2") + 
-  tm_style('gray', title = 'Okresy SR') + 
-  tm_text('kraj', auto.placement = TRUE)
-```
-
+For a change, we will use `ggplot`:
 
 ```{r, eval=F}
-mapa.okres.sf.gps <- st_transform(x = mapa.okres.sf, crs=4326)
-osm_tiles = tmaptools::read_osm(st_bbox(mapa.okres.sf.gps), type = "osm")
-tmap.object <- qtm(osm_tiles, raster.alpha = 0.6) + 
-  tm_shape(mapa.okres.sf.gps) +
-  tm_fill(col = "Shape_Area", style = "cont", title="Plocha m\u00B2") + 
-  tm_style('gray', title = 'Okresy SR')
+library(ggplot2)  # Load the ggplot library
+library(viridis)  # Load the library for a nice colour palette
+ggplot(respiratory.causes.sf) +
+  geom_sf(aes(fill = death_rate)) +
+  scale_fill_viridis("Death rate") +
+  ggtitle("Deaths due to respiratory diseases") +
+  theme_bw()
 ```
 
-## A few useful visualisations
+
+## Case study: respiratory diseases IV
+
+```{r, echo=F, cache=T, fig.align='center'}
+library(ggplot2)  # Load the ggplot library
+library(viridis)  # Load the library for a nice colour palette
+ggplot(respiratory.causes.sf) +
+  geom_sf(aes(fill = death_rate)) +
+  scale_fill_viridis("Death rate") +
+  ggtitle("Deaths due to respiratory diseases") +
+  theme_bw()
+```
+
+
+## Case study: respiratory diseases V
+
+* The plot suggests that districts next to each other often have very similar
+  rate.
+* A common test for the presence of spatial autocorrelation in spatial 
+  statistics is so called _Moran's I test_.
+
+
+## Case study: respiratory diseases VI
+
+
 
 
 
