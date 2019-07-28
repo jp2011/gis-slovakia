@@ -23,7 +23,7 @@ pre {
   font-size: 12px;
 }
 
-p {
+p, ul, ol {
   text-align: left;
 }
 </style>
