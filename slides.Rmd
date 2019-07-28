@@ -1,38 +1,36 @@
 ---
 title: "GIS with R: examples from Slovakia"
-author: Jan Povala 
-date: 2019-07-26 
+date: July 2019
 output:
-#  beamer_presentation:
-#    toc: true
   revealjs::revealjs_presentation:
     highlight: pygments
     transition: fade
 ---
 
+## Geospatial analysis. Why are we doing this?
+
 <style type="text/css">
 
-body, td {
-   font-size: 12px;
+/* Headers */
+h1,h2,h3,h4,h5,h6{
+  font-size: 20pt;
 }
+
 code.r{
   font-size: 12px;
 }
 pre {
-  font-size: 12px
+  font-size: 12px;
 }
 
-p { text-align: left; }
+p {
+  text-align: left;
+}
 </style>
 
 ```{r set-options, echo=FALSE, cache=FALSE}
 options(width = 120)
 ```
-
-
-
-## Geospatial analysis. Why are we doing this?
-
 
 1. Most of our data we collect are a recording of some phenomena that happened
    at a specific place and time.
@@ -52,19 +50,26 @@ options(width = 120)
 
 Recommended textbooks:
 
+<small>
+
 * **Geocomputation with R**. Available [online](https://geocompr.robinlovelace.net/).
+* Gelfand, Alan E., ed. 2010. **Handbook of Spatial Statistics**. Chapman & Hall/CRC Handbooks 
+  of Modern Statistical Methods. Boca Raton: CRC Press. 
 * Wikle, Christopher K., Andrew Zammit-Mangion, and Noel Cressie. 2019. 
 **Spatio-Temporal Statistics with R**. 1st ed. Boca Raton, Florida : CRC Press, 
 [2019]: Chapman and Hall/CRC. https://doi.org/10.1201/9781351769723.
 
+</small>
+
 Other sources:
+<small>
 
 - [r-spatial.org](www.r-spatial.org) is a portal for people interested in
   spatial modelling.
 - Packages like `sf`, `sp` tend to be well-documented, and with worked
   examples.
 
-
+</small>
 
 ## Spatial data
 
@@ -128,7 +133,7 @@ mapa.obec.sf <- st_read(dsn = file.path(getwd(),
 
 ## Inspecting the map object - coordinates
 
-To see what coordinate system it uses `st_crs()` function:
+To see what coordinate system it uses,  `st_crs()` function can be used:
 ```{r, echo=T, cache=T}
 st_crs(mapa.obec.sf)
 ```
@@ -139,7 +144,7 @@ Due to the missing code, we do a transformation to the official code using
 crsCodeSkCadastreOffice <- 5513  # save the cadastre CRS to a constant
 mapa.obec.sf <- st_transform(x = mapa.obec.sf, 
                              crs = crsCodeSkCadastreOffice)
-st_crs(mapa.obec.sf)                   # 
+st_crs(mapa.obec.sf)
 ```
 
 
@@ -152,6 +157,8 @@ summary(mapa.obec.sf)
 
 ## Inspecting the map object - data
 
+<small>
+
 From the columns included in the shapefiles, we see that:
 
 1. `IDN4` is a unique identifier for each municipality.
@@ -160,12 +167,13 @@ From the columns included in the shapefiles, we see that:
 4. `NM3` is the name for okres.
 5. `IDN2` is the identifier for kraj.
 5. `NM2` is the name for kraj.
-7. `Shape_Leng` and `Shape_Area` are the perimeter and the area of the
-   municipality.
+7. `Shape_Leng` and `Shape_Area` are the perimeter and the area of a municipality.
 8. It's not clear to me what `VYMERA` is given that the values slightly deviate
    from the `Shape_Area`.
 
 The other columns are not relevant for this tutorial.
+
+</small>
 
 
 ## Data preparation
@@ -217,14 +225,14 @@ Some of the most popular options are:
 We will give examples of all throughout the rest of this tutorial.
 
 
-## Example: migration in Slovakia I
+## Example: migration in Slovakia
 
 1. Load the migration and population data.
 2. Merge the data with the map files.
 3. Visualise the data: inflow / outflow. 
 
 
-## Example: migration in Slovakia II
+## Example: migration in Slovakia
 ```{r, echo=F}
 library("readxl")
 ```
@@ -247,12 +255,11 @@ population.district.df <- population.municipality.df  %>%
 ```
 
 
-## Example: migration in Slovakia II
+## Example: migration in Slovakia
 
 Merge the data with maps
 ```{r, cache=T, warning=F, message=F, results='hide'}
-library(stringi) # for removing diacritis for joins
-
+library(stringi) # for removing diacritics for joins
 pop.migration.district.df <- migration.district.df %>%
   dplyr::full_join(population.district.df, by = 'district') %>%
   dplyr::mutate(district_ascii = stri_trans_general(str = district, id = "Latin-ASCII"))
@@ -268,14 +275,17 @@ pop.migration.district.sf <- pop.migration.district.sf %>%
   dplyr::mutate(inflow_sk_percent = 100*(inflow_sk / population))
 ```
 
+
+## Example: migration in Slovakia
+
 Plot using the default `plot()` method
 ```{r, echo=T, eval=F}
 plot(x = pop.migration.district.sf[c('outflow_abroad_percent')], 
      key.pos = 1, main='% of population moved abroad')
-
 ```
 
-## Example: migration in Slovakia III
+
+## Example: migration in Slovakia
 
 ```{r, echo=F, cache=T, warning=F, message=F, fig.align = 'center'}
 plot(x = pop.migration.district.sf[c('outflow_abroad_percent')], 
@@ -283,12 +293,11 @@ plot(x = pop.migration.district.sf[c('outflow_abroad_percent')],
 ```
 
 
-## Example: migration in Slovakia IV
+## Example: migration in Slovakia
 
 Plotting side-by-side using the default method is possible, but has
 limitations such as not supporting legends. `tmap` package can handle those
 very well.
-
 
 `tmap` allows integration with Open Street Map
 data and interactive maps on top of regular plotting. What we show here is only
@@ -299,12 +308,13 @@ page](https://github.com/mtennekes/tmap).
 install.packages('tmap')
 ```
 
+
 ```{r, echo=TRUE, cache=TRUE, results='hide'}
 library(tmap)
 ```
 
 
-## Example: migration in Slovakia V
+## Example: migration in Slovakia
 
 ```{r, eval=F}
 pop.migration.sf.tall <- pop.migration.district.sf %>%
@@ -324,7 +334,7 @@ tm_shape(sk.migration) +
 Exercise: do the same for migration to/out of Slovakia.
 
 
-## Example: migration in Slovakia VI
+## Example: migration in Slovakia
 
 ```{r, echo=F, cache=T, warning=F, message=F, fig.align = 'center'}
 pop.migration.sf.tall <- pop.migration.district.sf %>%
@@ -342,25 +352,23 @@ tm_shape(sk.migration) +
 ```
 
 
-## Case study: respiratory diseases I
+## Case study: respiratory diseases
+
 1. Download the dataset from the [official statistics portal](http://datacube.statistics.sk/#!/view/sk/VBD_DEM/om7035rr/Zomrel%C3%AD%20pod%C4%BEa%20pr%C3%AD%C4%8Diny%20smrti,%20pohlavia%20a%20trval%C3%A9ho%20pobytu%20-%20SR-oblas%C5%A5-kraj-okres,%20m-v%20%5Bom7035rr%5D)
 2. Plot the rate of deaths due to respiratory diseases.
 3. Is there spatial correlation?
 
 
-## Case study: respiratory diseases II 
+## Case study: respiratory diseases
 
 ```{r, cache=T, warning=F, message=F, results='hide'}
-
-death.causes.df <- read_excel(file.path(getwd(), 'data', "raw", "deaths_causes.xlsx"),
-                                    skip=7, col_names=FALSE)
-colnames(death.causes.df) <- c('district', 'group', 'type', 'y2014', 'y2015',
-                               'y2016', 'y2017', 'y2018')
+death.causes.df <- read_excel(file.path(getwd(), 'data', "raw", "deaths_causes.xlsx"), skip=7, col_names=FALSE)
+colnames(death.causes.df) <- c('district', 'group', 'type', 'y2014', 'y2015', 'y2016', 'y2017', 'y2018')
 
 # sum over the years, merge with population counts and group by disease group
 respiratory.causes.df <- death.causes.df %>%
   dplyr::mutate(district = gsub("^District of (.+)$", "\\1", district)) %>%
-  dplyr::mutate(counts_5year = y2014 + y2015 + y2016 + y2017 + y2018) %>%
+  dplyr::mutate(counts_5year = (y2014 + y2015 + y2016 + y2017 + y2018) / 5) %>%
   dplyr::group_by(district, group) %>%
   dplyr::summarise(death_count = sum(counts_5year)) %>%
   dplyr::filter(group == 'X Diseases of the respiratory system') %>%
@@ -375,7 +383,7 @@ respiratory.causes.sf <- mapa.okres.sf %>%
 ```
 
 
-## Case study: respiratory diseases III
+## Case study: respiratory diseases
 
 For a change, we will use `ggplot`:
 
@@ -390,7 +398,7 @@ ggplot(respiratory.causes.sf) +
 ```
 
 
-## Case study: respiratory diseases IV
+## Case study: respiratory diseases
 
 ```{r, echo=F, cache=T, fig.align='center'}
 library(ggplot2)  # Load the ggplot library
@@ -403,30 +411,66 @@ ggplot(respiratory.causes.sf) +
 ```
 
 
-## Case study: respiratory diseases V
+## Case study: respiratory diseases
 
 * The plot suggests that districts next to each other often have very similar
-  rate.
+  rate (btw. the hotspot is Turčianske Teplice).
 * A common test for the presence of spatial autocorrelation in spatial 
   statistics is so called _Moran's I test_.
+* A value very close to zero means that there is no spatial correlation
+  present.
+
+$$
+\begin{equation}
+I=\frac{m \sum_{i=1}^{m} \sum_{j=1}^{m} w_{i j}\left(Z_{i}-\overline{Z}\right)\left(Z_{j}-\overline{Z}\right)}{\left(\sum_{i=1}^{m} \sum_{j=1}^{m} w_{i j}\right)\left(\sum_{i=1}^{m}\left(Z_{i}-\overline{Z}\right)^{2}\right)}
+\end{equation}
+$$
 
 
-## Case study: respiratory diseases VI
+## Case study: respiratory diseases
 
+```{r moran, cache=T}
+library(spatstat)
+library(sp)
+library(spdep)
 
+death.rates <- unlist(st_drop_geometry(respiratory.causes.sf['death_rate']))
+nb.list <- poly2nb(pl = respiratory.causes.sf, snap = 1)
+nb.weights <- nb2listw(nb.list) 
+spdep::moran.test(death.rates, nb.weights) 
+```
 
+## Case study: respiratory diseases
 
+<small>
 
+* The value of Moran's I statistic is 0.177 which is significantly above 0. The
+  p-value is 0.003993.
+* This suggests that the differences in the death rates are not only due to
+  chance. This gives us indication to explore further and find explanatory
+  variables that would explain the differences.
+* **Challenge exercise:** take some explanatory variable (e.g. altitude, level of
+  pollution), fit a simple linear model, and check the spatial autocorrelation
+  of the residuals. Hopefully, adding explanatory variables reduces it.
+* Often, we are not able to observe the relevant covariates. To account for
+  this unexplained variation, a latent component is often introduced. Often it
+  is a Gaussian random field. When the field is assumed to be Markovian, 
+  these can be fit efficiently. This is beyond the scope of the course, but
+  models to watch out for are: CAR Models, BYM Models (refinement of CAR),
+  log-Gaussian Cox process (for count data).
 
-## Case study: presidential elections 2019
+</small>
+
+## Case study: elections 2019
+
+Next, we look at presidential elections in Slovakia from 2019.
 
 1. Download the raw dataset of the results from [here](http://volby.statistics.sk/prez/prez2019/sk/download.html).
-2. Load the results, merge it with the geography you are interested in (obec,
-   kraj)
-3. Plot the results.
+2. Load the results, merge it with the geography you are interested in (obec, kraj)
+3. Plot the results, including interactive maps.
 
 
-## Case study: presidential elections 2019
+## Case study: elections 2019
 
 Load the data:
 ```{r load_xlsx_prezidentske, results='hide', echo=TRUE, message=F, warning=F}
@@ -446,7 +490,7 @@ results.obec <- results.obec %>%
 ```
 
 
-## Case study: presidential elections 2019
+## Case study: elections 2019
 
 Join the data with the map:
 ```{r prezidentke_map_join, echo=T, results='hide', message=F, warning=F}
@@ -458,7 +502,7 @@ results.obec.sf <- mapa.obec.sf %>%
 ```
 
 
-## Case study: presidential elections 2019
+## Case study: elections 2019
 
 Since we are working with 'obec' level, we focus only on one 'kraj' region, and
 we only compare top 4 candidates in that region.
@@ -480,7 +524,7 @@ zilinsky.kraj.results.top.candidates.sf <- zilinsky.kraj.results.sf %>%
 ```
 
 
-## Case study: presidential elections 2019
+## Case study: elections 2019
 
 ```{r, eval=F, echo=T}
 tmap_mode("plot")
@@ -491,7 +535,7 @@ tm_shape(zilinsky.kraj.results.top.candidates.sf) +
 ```
 
 
-## Case study: presidential elections 2019
+## Case study: elections 2019
 
 ```{r, cache=T, message=F, warning=F, echo=F, fig.align = 'center'}
 tmap_mode("plot")
@@ -502,9 +546,9 @@ tm_shape(zilinsky.kraj.results.top.candidates.sf) +
 ```
 
 
-## Case study: presidential elections 2019
+## Case study: elections 2019
 
-As we can see this visualisation is not ideal, so we go for the interactive
+As we can see this visualisation is not ideal, so we go for  an interactive
 map where we can zoom in/out as we please.
 
 ```{r, eval=F, echo=T}
@@ -526,7 +570,7 @@ tm
 ```
 
 
-## Case study: presidential elections 2019
+## Case study: elections 2019
 
 ```{r fig.width=6, fig.height=6, fig.align = 'center', cache=T,echo=FALSE}
 library(png)
