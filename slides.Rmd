@@ -10,13 +10,29 @@ output:
     transition: fade
 ---
 
-
 <style type="text/css">
+
+body, td {
+   font-size: 12px;
+}
+code.r{
+  font-size: 12px;
+}
+pre {
+  font-size: 12px
+}
+
 p { text-align: left; }
 </style>
 
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 120)
+```
+
+
 
 ## Geospatial analysis. Why are we doing this?
+
 
 1. Most of our data we collect are a recording of some phenomena that happened
    at a specific place and time.
@@ -194,6 +210,176 @@ mapa.okres.sf <- mapa.okres.sf %>%
   rename(plocha_uzemia = Shape_Area)
 ```
 
+## Visualisation - options
+
+Some of the most popular options are:
+
+1. default `plot()` method in the `sf` package,
+2. `ggplot`,
+3. `tmap`.
+
+We will give examples of all throughout the rest of this tutorial.
+
+
+## Example: migration in Slovakia I
+
+1. Load the migration and population data.
+2. Merge the data with the map files.
+3. Visualise with migration type breakdown:
+    - within-country migration
+    - between-countries migration
+
+
+## Example: migration in Slovakia II
+```{r, echo=F}
+library("readxl")
+```
+Load migration and population data
+```{r migration_data, cache=T, warning=F, message=F, results='hide'}
+migration.district.df <- read_excel(file.path(getwd(), 'data', "raw", "migration_by_district.xlsx"),
+                                    skip=8, col_names=FALSE)
+colnames(migration.district.df) <- c('district', 'inflow_sk', 'inflow_abroad', 'outflow_sk', 'outflow_abroad')
+migration.district.df <- migration.district.df %>%
+  dplyr::mutate(district = gsub("^District of (.+)$", "\\1", district))
+
+# load population data and clean them
+population.municipality.df <- read_excel(file.path(getwd(), 'data', "raw", "population_municipality.xlsx"),
+                                         skip=7, col_names=FALSE)
+colnames(population.municipality.df) <- c('district', 'municipality', 'population')
+population.district.df <- population.municipality.df  %>%
+  dplyr::mutate(district = gsub("^District of (.+)$", "\\1", district)) %>%
+  dplyr::group_by(district) %>%
+  dplyr::summarise(population = sum(population))
+```
+
+
+## Example: migration in Slovakia II
+
+Merge the data with maps
+```{r, cache=T, warning=F, message=F, results='hide'}
+library(stringi) # for removing diacritis for joins
+
+pop.migration.district.df <- migration.district.df %>%
+  dplyr::full_join(population.district.df, by = 'district') %>%
+  dplyr::mutate(district_ascii = stri_trans_general(str = district, id = "Latin-ASCII"))
+
+pop.migration.district.sf <- mapa.okres.sf %>%
+  dplyr::mutate(district_ascii = stri_trans_general(str = okres, id = "Latin-ASCII")) %>%
+  dplyr::left_join(pop.migration.district.df, by = "district_ascii")
+
+pop.migration.district.sf <- pop.migration.district.sf %>%
+  dplyr::mutate(outflow_abroad_percent = 100*(outflow_abroad / population)) %>%
+  dplyr::mutate(outflow_sk_percent = 100*(outflow_sk / population)) %>%
+  dplyr::mutate(inflow_abroad_percent = 100*(inflow_abroad / population)) %>%
+  dplyr::mutate(inflow_sk_percent = 100*(inflow_sk / population))
+```
+
+Plot using the default `plot()` method
+```{r, echo=T, eval=F}
+plot(x = pop.migration.district.sf[c('outflow_abroad_percent')], 
+     key.pos = 1, main='% of population moved abroad')
+
+```
+
+## Example: migration in Slovakia III
+
+```{r, echo=F, cache=T, warning=F, message=F, fig.align = 'center'}
+plot(x = pop.migration.district.sf[c('outflow_abroad_percent')], 
+     key.pos = 1, main='% of population moved abroad')
+```
+
+
+## Example: migration in Slovakia IV
+
+Plotting side-by-side using the default method is possible, but has
+limitations such as not supporting legends. `tmap` package can handle those
+very well.
+
+
+This library allows integration with Open Street Map
+data and interactive maps on top of regular plotting. What we show here is only
+scratching the surface, for more examples, please visit the [tmap's github
+page](https://github.com/mtennekes/tmap).
+
+```{r, eval=FALSE, echo=TRUE, results='hide', message=F, warning=F}
+install.packages('tmap')
+```
+
+```{r, echo=TRUE, cache=TRUE, results='hide'}
+library(tmap)
+```
+
+
+## Example: migration in Slovakia V
+
+```{r, eval=F}
+pop.migration.sf.tall <- pop.migration.district.sf %>%
+  tidyr::gather("type", "percent", c("outflow_abroad_percent", "outflow_sk_percent",
+                                     "inflow_abroad_percent", "inflow_sk_percent")) %>%
+  dplyr::mutate(type = gsub("_", " ", gsub("(.+)\\_percent", "\\1", type)))
+
+sk.migration <- pop.migration.sf.tall %>%
+  dplyr::filter(grepl('.*sk', type))
+
+tm_shape(sk.migration) +
+  tm_fill(col = "percent", style = "cont", title="% of population") + 
+  tm_style('gray', title = 'Migration within Slovakia') + 
+  tm_facets('type')
+```
+
+Exercise: do the same for migration to/out of Slovakia.
+
+
+## Example: migration in Slovakia VI
+
+```{r, echo=F, cache=T, warning=F, message=F, fig.align = 'center'}
+pop.migration.sf.tall <- pop.migration.district.sf %>%
+  tidyr::gather("type", "percent", c("outflow_abroad_percent", "outflow_sk_percent",
+                                     "inflow_abroad_percent", "inflow_sk_percent")) %>%
+  dplyr::mutate(type = gsub("_", " ", gsub("(.+)\\_percent", "\\1", type)))
+
+sk.migration <- pop.migration.sf.tall %>%
+  dplyr::filter(grepl('.*sk', type))
+
+tm_shape(sk.migration) +
+  tm_fill(col = "percent", style = "cont", title="% of population") + 
+  tm_style('gray', title = 'Migration within Slovakia') +
+  tm_facets('type')
+```
+
+
+## Example: deaths in Slovakia
+here show ggplot
+
+* Download the dataset from the [official statistics portal](http://datacube.statistics.sk/#!/view/sk/VBD_DEM/om7038rr/Priemern%C3%BD%20vek%20osoby%20pri%20%C3%BAmrt%C3%AD%20pod%C4%BEa%20pohlavia%20-%20SR-oblas%C5%A5-kraj-okres,%20m-v%20%5Bom7038rr%5D)
+* Do some plots, by sex...
+
+
+## Example: death causes in Slovakia
+
+* Download the dataset from the [official statistics portal](http://datacube.statistics.sk/#!/view/sk/VBD_DEM/om7035rr/Zomrel%C3%AD%20pod%C4%BEa%20pr%C3%AD%C4%8Diny%20smrti,%20pohlavia%20a%20trval%C3%A9ho%20pobytu%20-%20SR-oblas%C5%A5-kraj-okres,%20m-v%20%5Bom7035rr%5D)
+* Break down by disease categories
+
+
+
+## Using spatial analysis in regression models
+
+The example we give is very crude, but we just want to illustrate the point.
+
+
+- check if there is a spatial correlation for the rates of deaths / age at
+  which people die
+- fit some glm model and see if the residuals are correlated...
+
+
+here show tmap methods
+
+1. Check spatial correlation for death rate for plucne choroby
+2. Try to fit the thing about altitude stuff....
+1. Fit number of breathing deaths a function of altitude
+2. check residuals...
+
+
 
 ## Visualisation - default `plot()` method
 
@@ -342,6 +528,18 @@ tmap.object <- qtm(osm_tiles, raster.alpha = 0.6) +
   tm_style('gray', title = 'Okresy SR')
 ```
 
+## A few useful visualisations
+
+
+
+
+## Case study: presidential elections 2019
+
+1. Download the raw dataset of the results from [here](http://volby.statistics.sk/prez/prez2019/sk/download.html).
+2. Load the results, merge it with the geography you are interested in (obec,
+   kraj)
+3. Plot the results.
+
 
 ## Case study: presidential elections 2019
 
@@ -410,7 +608,7 @@ tm_shape(zilinsky.kraj.results.top.candidates.sf) +
 
 ## Case study: presidential elections 2019
 
-```{r, cache=T, message=F, warning=F, echo=F}
+```{r, cache=T, message=F, warning=F, echo=F, fig.align = 'center'}
 tmap_mode("plot")
 tm_shape(zilinsky.kraj.results.top.candidates.sf) +
   tm_fill(col = "platne_hlasy_percent", style = "cont", title="Podiel hlasov %") + 
@@ -422,29 +620,9 @@ tm_shape(zilinsky.kraj.results.top.candidates.sf) +
 ## Case study: presidential elections 2019
 
 As we can see this visualisation is not ideal, so we go for the interactive
-map where we can zoom in/out as we please. We only focus on Zuzana Caputova
-and Maros Sefcovic.
+map where we can zoom in/out as we please.
 
 ```{r, eval=F, echo=T}
-library(tidyr)
-
-zilinsky.kraj.results.top.2.sf <- zilinsky.kraj.results.top.candidates.sf %>%
-  dplyr::filter(name %in% c('Maroš Šefčovič', 'Zuzana Čaputová'))
-
-zilinsky.results.wide.sf <- zilinsky.kraj.results.top.2.sf %>%
-  dplyr::select(name, platne_hlasy_percent, obec) %>%
-  tidyr::spread(name, platne_hlasy_percent)
-
-tmap_mode("view")
-tm <- tm_shape(zilinsky.results.wide.sf) + 
-  tm_polygons(c('Maroš Šefčovič', 'Zuzana Čaputová')) + 
-  tm_facets(sync = TRUE, ncol = 2)
-tm
-```
-
-
-## Case study: presidential elections 2019
-```{r prezidentske_interactive, cache=F, echo=F, message=F, warning=F}
 library(tidyr)
 
 zilinsky.kraj.results.top.2.sf <- zilinsky.kraj.results.top.candidates.sf %>%
@@ -460,5 +638,14 @@ tm <- tm_shape(zilinsky.results.wide.sf) +
   tm_facets(sync = TRUE, ncol = 2) +
   tm_layout(legend.text.size = 0.4)
 tm
+```
 
+
+## Case study: presidential elections 2019
+
+```{r fig.width=6, fig.height=6, fig.align = 'center', cache=T,echo=FALSE}
+library(png)
+library(grid)
+img <- readPNG("./images/elections-zilinsky-interactive.png")
+ grid.raster(img)
 ```
