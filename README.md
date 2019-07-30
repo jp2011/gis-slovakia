@@ -1,7 +1,7 @@
 # r-gis-slovakia
 Miscellaneous scripts for analysing (mostly visualising) geo-referenced data with focus on Slovakia.
 
-The full tutorial can be viewed at [jan.povala.com/r-gis-slovakia/tutorial.html](http://jan.povala.com/r-gis-slovakia/tutorial.html).
+* Slides for the tutorial can be found at [jan.povala.com/r-gis-slovakia/tutorial.html](http://jan.povala.com/r-gis-slovakia/slides.html#/).
 
 
 
