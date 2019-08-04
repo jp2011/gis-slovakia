@@ -578,3 +578,63 @@ library(grid)
 img <- readPNG("./images/elections-zilinsky-interactive.png")
  grid.raster(img)
 ```
+
+
+
+## Case study: roads and cities in Slovakia
+
+We will:
+
+1. Put motorways, primary, and secondary roads on the map of Slovakia.
+2. We put some cities on the map to make it more readable.
+
+```{r, cache=T, warning=F, message=F, results='hide'}
+mapa.roads.sf <- st_read(dsn = file.path(getwd(), 'maps', 'slovakia-roads-shape', 'roads.shp'))
+mapa.roads.sf <- st_transform(x = mapa.roads.sf, crs = crsCodeSkCadastreOffice)
+
+mapa.places.sf <- st_read(dsn = file.path(getwd(), 'maps', 'slovakia-places-shape', 'places.shp'))
+mapa.places.sf <- st_transform(x = mapa.places.sf, crs = crsCodeSkCadastreOffice)
+
+# motorways, primary roads, secondary roads
+slovakia.motorways.sf <- mapa.roads.sf %>%
+  dplyr::filter(type %in% c('motorway', 'primary', 'secondary')) %>%
+  dplyr::select(name, type)
+
+# 8 cities that we have in Slovakia (extracted as points on the map)
+cities.points.sf <- mapa.places.sf %>%
+  dplyr::filter(type == 'city') %>%
+  dplyr::select(name, type)
+
+```
+
+## Case study: roads and cities in Slovakia
+
+```{r, eval=F }
+slovakia.motorways.df <- as.data.frame(slovakia.motorways.sf) %>% droplevels()
+slovakia.motorways.sf <- st_sf(slovakia.motorways.df,st_geometry(slovakia.motorways.sf))
+  
+tmap_mode("plot")
+tm_shape(mapa.kraj.sf) +
+    tm_borders(col='black') + 
+tm_shape(cities.points.sf) +
+    tm_dots(size=0.1) +
+    tm_text('name', size=0.7, auto.placement = T) +
+tm_shape(slovakia.motorways.sf) +
+    tm_lines(col='type', palette = c('red', 'green', 'blue'))
+```
+
+## Case study: roads and cities in Slovakia
+
+```{r, echo=F, warning=F, message=F, cache=T, fig.align = 'center'}
+slovakia.motorways.df <- as.data.frame(slovakia.motorways.sf) %>% droplevels()
+slovakia.motorways.sf <- st_sf(slovakia.motorways.df,st_geometry(slovakia.motorways.sf))
+  
+tmap_mode("plot")
+tm_shape(mapa.kraj.sf) +
+    tm_borders(col='black') + 
+tm_shape(cities.points.sf) +
+    tm_dots(size=0.1) +
+    tm_text('name', size=0.7, auto.placement = T) +
+tm_shape(slovakia.motorways.sf) +
+    tm_lines(col='type', palette = c('red', 'green', 'blue'))
+```
