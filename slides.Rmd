@@ -616,11 +616,11 @@ slovakia.motorways.sf <- st_sf(slovakia.motorways.df,st_geometry(slovakia.motorw
 tmap_mode("plot")
 tm_shape(mapa.kraj.sf) +
     tm_borders(col='black') + 
+tm_shape(slovakia.motorways.sf) +
+    tm_lines(col='type', palette = c('red', 'green', 'blue')) +
 tm_shape(cities.points.sf) +
     tm_dots(size=0.1) +
-    tm_text('name', size=0.7, auto.placement = T) +
-tm_shape(slovakia.motorways.sf) +
-    tm_lines(col='type', palette = c('red', 'green', 'blue'))
+    tm_text('name', size=0.7, auto.placement = T)
 ```
 
 ## Case study: roads and cities in Slovakia
@@ -632,9 +632,9 @@ slovakia.motorways.sf <- st_sf(slovakia.motorways.df,st_geometry(slovakia.motorw
 tmap_mode("plot")
 tm_shape(mapa.kraj.sf) +
     tm_borders(col='black') + 
+tm_shape(slovakia.motorways.sf) +
+    tm_lines(col='type', palette = c('red', 'green', 'blue')) +
 tm_shape(cities.points.sf) +
     tm_dots(size=0.1) +
-    tm_text('name', size=0.7, auto.placement = T) +
-tm_shape(slovakia.motorways.sf) +
-    tm_lines(col='type', palette = c('red', 'green', 'blue'))
+    tm_text('name', size=0.7, auto.placement = T)
 ```
